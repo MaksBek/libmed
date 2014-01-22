@@ -1,0 +1,331 @@
+<?php
+/**
+* @file
+* A block module that displays recent blog and forum posts.
+*/ 
+
+function clinic_help($path, $arg){
+    switch($path){
+        case "admin/help#clinic":
+            return "<p>" . t("Добавление и редактирование клиник") . "</p>";
+            break;
+    }
+}
+
+// hook_theme
+function clinic_theme($existing, $type, $theme, $path) {
+    return array(
+        'clinic_list' => array( // theme функция, 
+            'arguments' => array('clinics' => NULL),
+            'template' => 'clinic-widget' // имя шаблона
+        ),
+        'clinic_detail' => array(
+            'arguments' => array('data' => null),
+            'template' => 'clinic-view'
+        ),
+        'clinic_user_list' => array(
+            'arguments' => array('users' => NULL),
+            'template' => 'clinic-userlist'
+        ),
+    );
+}
+
+function template_preprocess_clinic_list(&$variables) {
+ // тут можно чтонибудь сделать с массивом $variables, 
+ //$variables['weather'] - то что мы передали в функцию
+}
+function template_preprocess_clinic_detail(&$variables){
+//    var_dump($variables); exit();
+}
+
+
+/*
+ * menu items
+ */
+function clinic_menu(){
+    $items = array();
+    
+//    $items['admin/clinic'] = array(
+//        'title' => 'Клиника',
+//        'description' => 'Добавление и редактирование клиник',
+//        'page callback' => 'drupal_get_form',
+//        'page arguments' => array('clinic_admin_list'),
+//        'access arguments' => array('access administration pages'),
+//        'type' => MENU_NORMAL_ITEM
+//    );
+    
+    $items['user/%user/clinic'] = array(
+        'title' => 'Детали клиники',
+        'page callback' => 'clinic_user_view',
+        'page arguments' => array(1),
+        'access callback' => 'clinic_switch_access',
+        'access arguments' => array(1),
+        'type' => MENU_LOCAL_TASK
+    );
+    
+    $items['user/%user/personal'] = array(
+        'title' => 'Сотрудники',
+        'page callback' => 'clinic_personal_view',
+        'page arguments' => array(1),
+        'access callback' => 'clinic_switch_personals_access',
+        'access arguments' => array(1),
+        'type' => MENU_LOCAL_TASK,
+        'file' => 'clinic.user.inc'
+    );
+    
+    $items['clinic/list'] = array(
+        'title' => 'Список клиник',
+        'page callback' => 'clinic_list_view',
+        'access arguments' => array('access content'),
+        'type' => MENU_NORMAL_ITEM
+    );
+    
+    $items['clinic/%/view'] = array(
+        'title' => 'Информация о клинике',
+        'page callback' => 'clinic_detail_view',
+        'page arguments' => array(1),
+        'access arguments' => array('access content'),
+        'type' => MENU_NORMAL_ITEM
+    );
+    
+    $items['clinic/%/edit'] = array(
+        'title' => 'Редактирование даных клиники',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('clinic_form_view',1),
+        'access callback' => 'clinic_switch_access',
+        'access arguments' => array(1),
+        'type' => MENU_NORMAL_ITEM
+    );
+    
+    $items['clinic/add'] = array(
+        'title' => 'Добавление клиники',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('clinic_form_view'),
+        'access callback' => 'clinic_switch_access',
+        'access arguments' => array(1),
+        'type' => MENU_LOCAL_TASK
+    );
+    
+    return $items;
+}
+
+function clinic_block_info(){
+    $blocks['clinics'] = array(
+        'info' => t('Clinics'),
+        'cache' => DRUPAL_CACHE_PER_ROLE
+    );
+    return $blocks;
+}
+
+function clinic_contents(){
+    $query = db_select('clinics','c')
+            ->fields('c')
+            ->condition('c.allowed', 1)
+            ->orderBy('c.created', "DESC")
+            ->execute()
+            ->fetchAllAssoc('id');
+    
+    return $query;
+}
+
+
+function clinic_list_view(){
+    $result = clinic_contents();
+    // var_dump($result); exit();
+    return theme('clinic_list', array('clinics' => $result));
+//    return $result;
+}
+
+function clinic_block_views($deilta = ''){
+    switch ($deilta){
+        case 'clinic':
+            $block['subject'] = t('Список клиник');
+            if(user_access('access content')){
+                $result = clinic_contents();
+                $items = array();
+                foreach ($result as $clinic){
+                    $items[] = array('name' => $clinic['name']);
+                }
+                
+                if(empty($items)){
+                    $block['content'] = t('Клиники отсуцтвуют');
+                } else {
+                    $block['content'] = $items;
+                }
+            }
+            break;
+    }
+    return $block;
+}
+
+function clinic_detail_view($id){
+//    echo $id; exit();
+    $result = db_select('clinics', 'c')
+            ->fields('c')
+            ->condition('c.id', (int)$id)
+            ->execute()
+            ->fetchAssoc();
+//    var_dump($result);
+    return theme('clinic_detail', array('data' => $result));
+}
+
+function clinic_user_view($user){
+//    var_dump($user); exit();
+    $result = db_select('clinics', 'c')
+            ->fields('c')
+            ->condition('c.owner', $user->uid)
+            ->execute()
+            ->fetchAssoc();
+    //var_dump($result); exit();
+    if($result){
+        return theme('clinic_detail', array(
+                    'data' => $result,
+                    'edit_link' => 1)
+                );
+    } else {
+        return theme('clinic_detail', array(
+            'add_new' => 1
+        ));
+    }
+}
+
+function clinic_switch_access(){
+    if(user_access('clinic edit')){
+        return TRUE;
+    }
+    if(user_access('administer permissions')){
+        return TRUE;
+    }
+    
+    return FALSE;
+}
+
+function clinic_switch_personals_access(){
+    if(user_access('clinic admin personal')){
+        return TRUE;
+    }
+    if(user_access('administer permissions')){
+        return TRUE;
+    }
+    
+    return FALSE;
+}
+
+function clinic_form_view($form, $form_state, $clinic_id = 0){
+    if($clinic_id != 0){
+    $clinicData = db_select('clinics', 'c')
+            ->fields('c')
+            ->condition('c.id', (int)$clinic_id)
+            ->execute()
+            ->fetchAssoc();
+    }
+    $form = array();
+    
+    $form['name'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Название клиники'),
+        '#size' => '30',
+        '#default_value' => isset($clinicData) ? $clinicData['name'] : ""
+    );
+    $form['type'] = array(
+        '#type' => 'select',
+        '#title' => t('Тип'),
+        '#options' => array(
+            0 => t('Выберите один из вариантов'),
+            1 => t('first'),
+            2 => t('second'),
+            3 => t('third')
+        ),
+        '#default_value' => isset($clinicData) ? $clinicData['type'] : 0
+    );
+    $form['city'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Город'),
+        '#size' => '30',
+        '#default_value' => isset($clinicData) ? $clinicData['city'] : ""
+    );
+    $form['address'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Адрес'),
+        '#size' => '50',
+        '#default_value' => isset($clinicData) ? $clinicData['address'] : ""
+    );
+    $form['phone'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Номер телефона'),
+        '#default_value' => isset($clinicData) ? $clinicData['phone'] : ""
+    );
+    $form['link'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Ссылка на сайт'),
+        '#default_value' => isset($clinicData) ? $clinicData['link'] : ""
+    );
+    $form['details'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Детальная информация'),
+        '#cols' => 40,
+        '#rows' => 7,
+        '#default_value' => isset($clinicData) ? $clinicData['details'] : ""
+    );
+    
+    if($clinic_id != 0){
+        $form['id'] = array(
+            '#type' => 'hidden',
+            '#value' => $clinic_id
+        );
+    }
+    
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Сохранить')
+    );
+    
+    return $form;
+}
+
+function clinic_form_view_submit($form, $form_state){
+    global $user;
+//    var_dump($form_state['values']); exit();
+    if(isset($form_state['values']['id'])){
+        $data = $form_state['values'];
+        $numUpdated = db_update('clinics')
+                ->fields(array(
+                    'name' => htmlspecialchars($data['name']),
+                    'link' => htmlspecialchars($data['link']),
+                    'phone' => htmlspecialchars($data['phone']),
+                    'city' => htmlspecialchars($data['city']),
+                    'address' => htmlspecialchars($data['address']),
+                    'details' => htmlspecialchars($data['details']),
+                    'type' => (int)$data['type']
+                ))
+                ->condition('id', (int)$data['id'])
+                ->execute();
+        drupal_set_message("Запись успешно обновлена");
+        drupal_goto('user/' . $user->uid . '/clinic');
+    } else {
+        $data = $form_state['values'];
+        $cid = db_insert('clinics')
+        ->fields(array(
+                    'name' => htmlspecialchars($data['name']),
+                    'link' => htmlspecialchars($data['link']),
+                    'phone' => htmlspecialchars($data['phone']),
+                    'city' => htmlspecialchars($data['city']),
+                    'address' => htmlspecialchars($data['address']),
+                    'details' => htmlspecialchars($data['details']),
+                    'type' => (int)$data['type'],
+                    'owner' => (int)$user->uid,
+                    'allowed' => '0'
+                ))
+        ->execute();
+        
+        db_insert("clinic_to_user")
+                ->fields(array(
+                    'uid' => (int)$user->uid,
+                    'clinic_id' => (int)$cid
+                ))
+                ->execute();
+        
+        drupal_set_message("Клиника успешно добавлена");
+        drupal_goto('user/' . $user->uid . '/clinic');
+    }
+}

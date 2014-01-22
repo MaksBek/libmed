@@ -1,0 +1,4 @@
+name = Clinic
+description = Модуль для добавления/редактирования клиник.
+core = 7.x
+version = 1.0
