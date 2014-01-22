@@ -73,6 +73,26 @@ function clinic_menu(){
         'file' => 'clinic.user.inc'
     );
     
+    $items['personal/add'] = array(
+        'title' => 'Добавление сотрудника',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('clinic_personal_form'), 
+        'access callback' => 'clinic_switch_personals_access',
+        'access arguments' => array(1),
+        'type' => MENU_LOCAL_TASK,
+        'file' => 'clinic.user.inc'
+    );
+    
+    $items['personal/%/edit'] = array(
+        'title' => 'Добавление сотрудника',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('clinic_personal_form', 1), 
+        'access callback' => 'clinic_switch_personals_access',
+        'access arguments' => array(1),
+        'type' => MENU_LOCAL_TASK,
+        'file' => 'clinic.user.inc'
+    );
+    
     $items['clinic/list'] = array(
         'title' => 'Список клиник',
         'page callback' => 'clinic_list_view',
