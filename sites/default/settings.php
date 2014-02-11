@@ -215,7 +215,7 @@ $databases = array (
   array (
     'default' => 
     array (
-      'database' => 'libmed',
+      'database' => 'libmed2',
       'username' => 'root',
       'password' => '',
       'host' => 'localhost',
